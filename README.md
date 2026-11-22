@@ -19,19 +19,23 @@ This repository contains **server source code**, not a publicly hosted MCP servi
 
 **Never put a real access token into Git, a shared configuration, a screenshot or a chat message.** Use distinct secrets for Browserbase (`BROWSERBASE_API_KEY`) and MCP clients (`MCP_ACCESS_TOKEN`). Each connected client using the same bearer token gets the same note account access. Rotate it if exposed.
 
-### 1. ChatGPT (web)
+### 1. ChatGPT (web): integration prerequisites
 
-ChatGPT's **full custom MCP support including write actions** is available to eligible **Business and Enterprise/Edu** workspaces. A personal Plus subscription does **not** imply access to custom write-enabled MCP plugins. Availability and permissions are determined by the user's plan and workspace.
+**Compatibility warning (current build): ChatGPT cannot use this server's static Bearer-token authentication directly.** The ChatGPT custom-server connection currently offers OAuth, unauthenticated, or mixed OAuth/unauthenticated flows rather than arbitrary `Authorization` headers. **Do not remove authentication or publish your access token to make it connect.** To support ChatGPT safely, add MCP OAuth 2.1 authentication or place a properly secured OAuth-capable gateway in front of this server.
 
-1. In a supported workspace, open **Plugins** → **+** → **Add custom MCP server**.
-2. Name: `note-remote-mcp`.
-3. Connection: `https://YOUR_HOST/mcp` (public HTTPS; **not** a GitHub URL).
-4. Select an available **Bearer/API-key** authentication option that sends `Authorization: Bearer YOUR_MCP_ACCESS_TOKEN`, **if supported in your UI**. Authentication options may differ by workspace.
-5. Review the risk prompt, create the plugin and confirm the server's tools. Use **@note-remote-mcp** in a conversation and approve write actions as required.
+Additionally, **write-enabled custom MCP support** in ChatGPT is currently limited to eligible Business and Enterprise/Edu workspaces. A personal **Plus** plan does not provide the equivalent write-enabled custom MCP access. Consult the current plan requirements before attempting setup.
 
-**Compatibility warning:** This server only supports a *static bearer token*, not MCP OAuth. If the ChatGPT connection screen offers OAuth-only authentication or does not support this Authorization header, **it will not work as-is**. Implement MCP OAuth support before claiming ChatGPT compatibility. This is a documented setup path, **not** an end-to-end verified integration.
+After the server supports a compatible authentication flow and the workspace allows custom MCP:
 
-Official: [Connecting custom MCP servers in ChatGPT](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt).
+1. Open **ChatGPT on the web → Plugins → + → Add custom MCP server**.
+2. Name it `note-remote-mcp`; set the server URL to `https://YOUR_HOST/mcp`.
+3. Configure the supported **OAuth** authentication (not a static Bearer header).
+4. Review the permissions and create/install the plugin. Refresh its tool list after server updates.
+5. Invoke tools by selecting `@note-remote-mcp`. Confirm any write action before execution.
+
+These are **future-compatible setup instructions**; this repository does **not** currently include the OAuth server required for ChatGPT web access.
+
+Official: [OpenAI: Custom MCP server connection](https://developers.openai.com/api/docs/guides/custom-mcp-server), [OpenAI: Custom MCP availability](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt).
 
 ### 2. Codex CLI / IDE
 
@@ -129,6 +133,8 @@ After deployment, confirm the server answers on HTTPS:
 curl --fail https://YOUR_HOST/health
 # Expected: {"ok":true,"name":"note-remote-mcp"}
 ```
+
+The MCP HTTP handler accepts up to **16 MiB per request** (including Base64 overhead); a batch of many large Base64 images can exceed this limit. Prefer allowlisted HTTPS image URLs for large batches.
 
 A valid `GET /health` does **not** prove the MCP endpoint or authenticated note.com operations work. A `401` from `/mcp` usually means the bearer token is missing or invalid. Successful tool discovery still does not imply note's current editor UI is compatible.
 
