@@ -4,7 +4,9 @@ import { toNodeHandler } from '@modelcontextprotocol/node';
 import { buildMcpServer } from './server.js';
 import { tokenMatches } from './security.js';
 
-const handler = createMcpHandler(buildMcpServer);
+// The SDK defaults to a 4 MiB request body, which is smaller than one 6 MiB Base64 image.
+// Allow up to 16 MiB per MCP request; larger batches should use allowlisted HTTPS image URLs.
+const handler = createMcpHandler(buildMcpServer, { maxRequestBodySize: 16 * 1024 * 1024 });
 const mcp = toNodeHandler(handler);
 const port = Number(process.env.PORT ?? '3000');
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid PORT');
