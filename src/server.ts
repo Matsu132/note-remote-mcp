@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod/v4';
-import { withNotePage, loginStart, loginFinish, withHeldNotePage, inHeldSession, reviewFinish } from './browser.js';
+import * as cloudBrowser from './browser.js';
+import type { createLocalBrowser } from './local-browser.js';
 import { saveDraft, setCover, addBodyImage, preparePaid, publish, addTags } from './note.js';
 import { noteUrl, safeError } from './security.js';
 import { splitPaidPreview } from './blocks.js';
@@ -17,25 +18,27 @@ const blocks = z.array(z.discriminatedUnion('type', [
 ])).min(1).max(100);
 
 type Result = { content: { type: 'text'; text: string }[]; isError?: boolean };
-async function tool<T>(fn: () => Promise<T>): Promise<Result> {
+async function tool(fn: () => Promise<unknown>): Promise<Result> {
   try { return { content: [{ type: 'text', text: JSON.stringify(await fn(), null, 2) }] }; }
   catch (error) { return { isError: true, content: [{ type: 'text', text: safeError(error) }] }; }
 }
-export function buildMcpServer(): McpServer {
+export function buildMcpServer(localBrowser?: ReturnType<typeof createLocalBrowser>): McpServer {
+  const { withNotePage, loginStart, loginFinish, withHeldNotePage, inHeldSession, reviewFinish } = localBrowser ?? cloudBrowser;
+  const reviewWindow = localBrowser ? 'the local Chrome window' : 'the Browserbase Live View';
   const s = new McpServer({ name: 'note-remote-mcp', version: '0.1.0' });
 
   s.registerTool('note_login_start', {
-    description: 'Start a manual login in a remotely hosted Browserbase browser. The returned Live View URL is sensitive.',
+    description: localBrowser ? 'Open the local Chrome window for manual note.com sign-in.' : 'Start a manual login in a remotely hosted Browserbase browser. The returned Live View URL is sensitive.',
     inputSchema: z.object({})
   }, async () => tool(loginStart));
 
   s.registerTool('note_login_finish', {
-    description: 'After logging in to note.com in the Live View, verify authentication and persist cloud-browser context.',
+    description: `After logging in to note.com in ${reviewWindow}, verify and save the sign-in state.`,
     inputSchema: z.object({ sessionId: z.string().min(5) })
   }, async ({ sessionId }) => tool(() => loginFinish(sessionId)));
 
   s.registerTool('note_session_check', {
-    description: 'Check if the Browserbase context is authenticated with note.com; does not post.',
+    description: 'Check whether the browser profile is signed in to note.com; does not post.',
     inputSchema: z.object({})
   }, async () => tool(() => withNotePage(async page => ({ loggedIn: !/\/login/.test(page.url()), url: page.url() }))));
 
@@ -55,7 +58,7 @@ export function buildMcpServer(): McpServer {
   }, async ({ editorUrl, image: file, afterText }) => tool(() => withNotePage(page => addBodyImage(page, file, afterText), noteUrl(editorUrl))));
 
   s.registerTool('note_set_hashtags', {
-    description: 'Set up to 10 article hashtags using the note editor interface. Verify in Live View.',
+    description: `Set up to 10 article hashtags using the note editor interface. Verify in ${reviewWindow}.`,
     inputSchema: z.object({ editorUrl: z.string().url(), tags: z.array(z.string().min(1).max(80)).min(1).max(10) })
   }, async ({ editorUrl, tags }) => tool(() => withHeldNotePage(noteUrl(editorUrl), page => addTags(page, tags))));
 
@@ -71,12 +74,12 @@ export function buildMcpServer(): McpServer {
     withHeldNotePage(noteUrl(editorUrl), async page => preparePaid(page, priceYen, lineAfterParagraph))));
 
   s.registerTool('note_review_article', {
-    description: 'Open article in Live View to inspect title, cover, body images, free/paid boundary and tags. Does NOT publish.',
+    description: `Open article in ${reviewWindow} to inspect title, cover, body images, free/paid boundary and tags. Does NOT publish.`,
     inputSchema: z.object({ editorUrl: z.string().url() })
   }, async ({ editorUrl }) => tool(() => withHeldNotePage(noteUrl(editorUrl), async () => ({ needsManualVerification: true }))));
 
   s.registerTool('note_publish_review_session', {
-    description: 'Publish after explicit manual review of a Live View. Disabled unless ENABLE_PUBLISH=true.',
+    description: `Publish after explicit manual review in ${reviewWindow}. Disabled unless ENABLE_PUBLISH=true.`,
     inputSchema: z.object({ sessionId: z.string().min(5), expectedTitle: z.string().min(1), paid: z.boolean(), acknowledgedPaidBoundary: z.boolean().default(false), confirmation: z.string() })
   }, async ({ sessionId, expectedTitle, paid, acknowledgedPaidBoundary, confirmation }) => tool(async () => {
     if (confirmation !== `PUBLISH ${expectedTitle}`) throw new Error('Exact confirmation phrase required');

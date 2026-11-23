@@ -101,7 +101,7 @@ export async function saveDraft(page: Page, title: string, blocks: ArticleBlock[
 export async function setCover(page: Page, image: ImageInput) {
   await uploadUsingChooser(page, [/見出し画像/, /画像を変更/, /画像を設定/], image);
   await clickOne(page, [/下書き保存/, /保存する/, /^保存$/], true);
-  return { editorUrl: noteUrl(page.url()), message: 'Cover file selected; verify rendering in Live View' };
+  return { editorUrl: noteUrl(page.url()), message: 'Cover file selected; verify rendering in the note editor' };
 }
 
 export async function addBodyImage(page: Page, image: ImageInput, afterText?: string) {
@@ -114,7 +114,7 @@ export async function addBodyImage(page: Page, image: ImageInput, afterText?: st
   }
   await insertImage(page, image);
   await clickOne(page, [/下書き保存/, /保存する/, /^保存$/], true);
-  return { editorUrl: noteUrl(page.url()), message: 'Image selected; verify upload and position in Live View' };
+  return { editorUrl: noteUrl(page.url()), message: 'Image selected; verify upload and position in the note editor' };
 }
 
 export async function preparePaid(page: Page, priceYen: number, lineAfterParagraph: number) {

@@ -1,30 +1,34 @@
 # note-remote-mcp
 
-An experimental **unofficial note.com remote MCP server** (TypeScript + Streamable HTTP + Browserbase cloud browser). It aims to support drafts, cover and inline images, hashtags, paid preview boundaries and controlled publishing.
+An experimental **unofficial note.com MCP server** in TypeScript. It supports local Chrome over stdio and Browserbase over hosted Streamable HTTP. It aims to support drafts, cover and inline images, hashtags, paid preview boundaries and controlled publishing.
 
 > **Experimental:** The code has not been verified end-to-end with an authenticated note.com account. Browser UI changes can break these tools. This repository is not affiliated with note.com. **Do not use with important content without reviewing the result.**
 
 ## Codex on your PC — run from GitHub
 
-With Git and Node.js 22+ (including npm) installed, register the server:
+Install Git, Node.js 22+ (including npm), and Google Chrome, then register the server:
 
 ```sh
 codex mcp add note-local-mcp -- npm exec --yes --package=git+https://github.com/Matsu132/note-remote-mcp.git#main -- note-remote-mcp
 ```
 
-npm fetches, builds, and caches the package on your PC. Codex launches the server over stdio, so this setup needs no manual clone, HTTPS hosting, or `MCP_ACCESS_TOKEN`. The name `note-local-mcp` lets you keep an existing HTTP registration under `note-remote-mcp`.
+npm fetches, builds, and caches the package. Codex starts it over stdio and opens Google Chrome on your PC when a note.com tool needs it. Browserbase, HTTPS hosting, and note.com API keys are unnecessary for this setup.
 
-You can also add the following to your local Codex `config.toml`. Allow extra startup time for the first install and pass Browserbase settings from the environment of the process that launches Codex:
+If the first install times out, set a longer startup timeout in your local Codex `config.toml`:
 
 ```toml
 [mcp_servers.note-local-mcp]
 command = "npm"
 args = ["exec", "--yes", "--package=git+https://github.com/Matsu132/note-remote-mcp.git#main", "--", "note-remote-mcp"]
 startup_timeout_sec = 60
-env_vars = ["BROWSERBASE_API_KEY", "BROWSERBASE_PROJECT_ID", "BROWSERBASE_CONTEXT_ID", "IMAGE_ALLOWED_HOSTS"]
 ```
 
-Restart Codex and use `/mcp` to check the tool list. `note_paid_preview` works offline without credentials. Login, draft editing, image uploads, and Live View still use your Browserbase project and its persistent context. Configure the three `BROWSERBASE_*` variables through your local secret manager or the environment that launches Codex. Browserbase usage may incur charges. Publishing is opt-in via `ENABLE_PUBLISH=true`, which is omitted from the example.
+1. Restart Codex and use `/mcp` to check the tool list. `note_paid_preview` runs without opening Chrome.
+2. Run `note_login_start` and sign in manually in the Chrome window. Keep the window open and pass the returned `sessionId` to `note_login_finish`. The server saves the signed-in state in a dedicated profile under `~/.note-remote-mcp/chromium`. Keep that profile private. To choose another location, pass `NOTE_BROWSER_PROFILE_DIR` to the MCP process.
+3. Review tools leave the local Chrome window open. Inspect it there and then use `note_close_review_session` with the returned `sessionId` when finished. Close an existing login or review window before starting another browser operation.
+4. Publishing remains opt-in via `ENABLE_PUBLISH=true` and still requires explicit confirmation. Test draft creation and review first.
+
+For the previous Browserbase-backed stdio setup, pass `NOTE_BROWSER_BACKEND=browserbase` alongside the existing `BROWSERBASE_*` settings.
 
 ## Hosted MCP connection (ChatGPT / Codex / Claude / Muse)
 
@@ -199,7 +203,7 @@ npm run test:stdio
 
 ## 日本語
 
-本リポジトリは、note.com向けの非公式TypeScript製**リモートMCPサーバー（実験版）**です。ChatGPT / Codex / Claude / Meta Muse Codeの接続設定を上記に記載しました。PC上のCodexでは[GitHubからの自動取得とstdio起動](#codex-on-your-pc--run-from-github)を利用でき、別途ホスティングは不要です。note.comの操作には引き続きBrowserbaseの設定が必要です。HTTP接続先URLはホスティング完了後に確定します。noteのログイン、記事投稿、トップ画像・本文画像、有料ラインの設定は実アカウントでの動作確認が済んでいません。公開前には必ずご自身で確認してください。
+本リポジトリは、note.com向けの非公式TypeScript製**MCPサーバー（実験版）**です。ChatGPT / Codex / Claude / Meta Muse Codeの接続設定を上記に記載しました。PC上のCodexでは[GitHubからの自動取得とstdio起動](#codex-on-your-pc--run-from-github)を利用でき、別途ホスティングは不要です。ローカルモードではPC上のGoogle Chromeでnote.comに手動ログインし、以降は専用プロファイルを再利用します。Browserbaseの設定はHTTPモードか、stdioでBrowserbaseを明示的に選んだ場合に必要です。noteのログイン、記事投稿、トップ画像・本文画像、有料ラインの設定は実アカウントでの動作確認が済んでいません。公開前には必ずご自身で確認してください。
 
 ## License
 

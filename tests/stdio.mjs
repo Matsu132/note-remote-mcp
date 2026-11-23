@@ -9,11 +9,13 @@ test('discovers note tools and previews the paid boundary over stdio', { timeout
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [fileURLToPath(new URL('../dist/src/stdio.js', import.meta.url))],
+    env: { NOTE_BROWSER_BACKEND: 'local' },
   });
   t.after(() => client.close());
   await client.connect(transport);
 
   const { tools } = await client.listTools();
+  assert.match(tools.find(({ name }) => name === 'note_login_start').description, /local Chrome/);
   assert.ok(tools.some(({ name }) => name === 'note_create_draft'));
   assert.ok(tools.some(({ name }) => name === 'note_publish_review_session'));
 
@@ -25,4 +27,11 @@ test('discovers note tools and previews the paid boundary over stdio', { timeout
   });
   assert.equal(result.isError ?? false, false);
   assert.deepEqual(JSON.parse(result.content[0].text), { free: [free], paid: [paid] });
+
+  const stale = await client.callTool({
+    name: 'note_login_finish',
+    arguments: { sessionId: 'missing-session' },
+  });
+  assert.equal(stale.isError, true);
+  assert.match(stale.content[0].text, /Local browser session has ended/);
 });
